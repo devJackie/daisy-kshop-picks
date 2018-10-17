@@ -1,0 +1,24 @@
+PPAS :
+  URL : "jdbc:mysql://211.113.71.67:3306/kthta?serverTimezone=UTC&autoReconnect=true"
+  USERNAME : "daisy"
+  PASSWORD : "daisy!"
+  CONNECTION_INIT_SIZE : "5"
+  CONNECTION_MAX_ACTIVE : "10"
+  CONNECTION_MIN_IDLE : "5"
+
+# checkpoint
+CHECKPOINT_DIR :
+   SPARK_TOPIC : "/data1/spark/checkpoint"
+
+# spark 주기
+DURATION :
+  SPARK_RECOMM_SLIDE_SECOND : "300"
+  SPARK_RECOMM_WINDOW_SECOND : "600"
+# 전처리
+SPARK_ODS :
+  POS_TYPE : "Noun|ProperNoun"
+
+# delimiter
+DELIMITER :
+  KEYWORD : "|"
+  TOPIC : "^"

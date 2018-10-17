@@ -1,0 +1,7 @@
+lib_managed/
+project/
+spark-warehouse/
+build/
+.idea/
+target/
+*.swp
