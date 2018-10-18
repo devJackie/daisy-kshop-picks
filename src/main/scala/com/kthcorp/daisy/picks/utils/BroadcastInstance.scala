@@ -3,7 +3,7 @@ package com.kthcorp.daisy.picks.utils
 import org.apache.log4j.Logger
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import scala.collection.mutable
 
@@ -13,8 +13,19 @@ import scala.collection.mutable
 object BroadcastInstance extends Serializable {
     @transient lazy val log = Logger.getRootLogger()
     @volatile private var broadCastHashUserData:  Broadcast[scala.collection.Map[Int,String]] = null
+    @volatile private var broadCastUserItemData:  Broadcast[DataFrame] = null
     
-
+    def getBroadCastUserItemData(sc: SparkContext, spark: SparkSession, newRawUserItemData: DataFrame): Broadcast[DataFrame] = {
+        synchronized {
+            try {
+                broadCastUserItemData = sc.broadcast(newRawUserItemData)
+            } catch {
+                case e: Exception => log.error("", e)
+            }
+        }
+        broadCastUserItemData
+    }
+    
     def getBroadCastHashUserData(sc: SparkContext, spark: SparkSession, hashUser: scala.collection.Map[Int,String]): Broadcast[scala.collection.Map[Int,String]] = {
         synchronized {
             try {

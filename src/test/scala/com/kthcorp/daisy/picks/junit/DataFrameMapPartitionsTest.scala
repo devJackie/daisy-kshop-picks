@@ -95,57 +95,41 @@ object DataFrameMapPartitionsTest {
         )
         
         dfWithoutSchema.show(10, false)
-    
-        
-//        val df3 = dfWithoutSchema.select(dfWithoutSchema("user"), explode(dfWithoutSchema("recommendations")).alias("recommendations"))
-//        df3.show()
         
         import spark.implicits._
-        // mapPartition 로직
-//        val df1 = dfWithoutSchema.mapPartitions( rdd => {
-//            rdd.map(x => {
-//                val user = (x.getAs[Int]("user"))
-//                val recommendations = x.getAs[mutable.WrappedArray[GenericRowWithSchema]]("recommendations")
-//
-//                var item = 0
-//                var prediction = 0.0
-//
-//                val list = ListBuffer[UserInfo]()
-//                val userInfo: Array[(String, Int, Double)] = recommendations.flatMap { array =>
-//                    item = array.getAs[Int]("item")
-//                    prediction = array.getAs[Double]("rating")
-////                    list.append(UserInfo(user.toString, item, prediction))
-//                    Some(user.toString, item, prediction)
-//                }.toArray
-////                userInfo.toArray match {
-////                    case Array(user, item, prediction)  => (user, item, prediction)
-////                }
-//                userInfo match {
-//                    case Array(Tuple3(user, item, prediction))  => Tuple3(user, item, prediction)
-//                }
-//            })
-//        }).toDF("user", "item", "prediction")
-////        }).toDF("value")
-//        println(s"df1 show!!")
-//        df1.show(10, false)
-
 
 //        val df3 = dfWithoutSchema.select(dfWithoutSchema("user"), explode(dfWithoutSchema("recommendations")).alias("recommendations"))
         dfWithoutSchema.select($"user", explode($"recommendations")).select($"user", $"col.item", $"col.rating" as "prediction").show()
-        
+    
         val df2 = dfWithoutSchema.mapPartitions( rdd => {
+            //Iterator[(Int, Int, Double)]
+            //Iterator[WrappedArray[(Int, Int, Double)]]
             rdd.map(x => {
-                println(x.getAs[Row]("user"))
                 val user = (x.getAs[Int]("user"))
-                println(x.getAs[Row]("recommendations"))
-                println(s">>>>>>>>>>>>x: $x")
                 val recommendations = x.getAs[mutable.WrappedArray[GenericRowWithSchema]]("recommendations")
-                println(s">>>>>>>>>>>>recommendations: $recommendations")
+            
+                var item = 0
+                var prediction = 0.0
+                recommendations.map( array => {
+                    item = array.getAs[Int]("item")
+                    prediction = array.getAs[Double]("rating")
+                    (item, prediction)
+                }).map( x => {
+                    (user, x._1, x._2)
+                })
+            }).flatten
+        }).toDF("user", "item", "prediction")
+        df2.show(false)
+        
+        // 잘못된 로직, 제대로 파싱 되지 않음
+        val df3 = dfWithoutSchema.mapPartitions( rdd => {
+            rdd.map(x => {
+                val user = (x.getAs[Int]("user"))
+                val recommendations = x.getAs[mutable.WrappedArray[GenericRowWithSchema]]("recommendations")
 
                 var item = 0
                 var prediction = 0.0
                 recommendations.map { array =>
-                    println(s">>>>>>>>>>>>array: $array")
                     item = array.getAs[Int]("item")
                     prediction = array.getAs[Double]("rating")
                     (item, prediction)
@@ -153,6 +137,8 @@ object DataFrameMapPartitionsTest {
                 (user.toString, item, prediction)
             })
         }).toDF("user", "item", "prediction")
+        println(s"df3 show!!")
+        df3.show()
         
         println(s"df2 show!!")
         df2.show(10, false)

@@ -31,14 +31,15 @@ object SparkRecommender {
 //        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "kth_item_user_data.txt").repartition(10)
 //        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "kth_item_user_data2.txt").repartition(10)
         val rawItemData: Dataset[String] = spark.read.textFile(base + "kth_item_item_nm_data.txt").repartition(10)
-        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_3month.txt").repartition(10)
-//        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_6month.txt").repartition(10)
+//        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_3month.txt").repartition(10)
+        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_6month.txt").repartition(10)
+//        val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_1year.txt").repartition(10)
         
         val sparkRecommenderExecute = new SparkRecommenderExecute(spark)
         val newRawUserItemData = sparkRecommenderExecute.preparation(rawUserItemData)
 //        sparkRecommenderExecute.model(rawUserItemData, rawItemData, newRawUserItemData)
-//        recommenderExecute.evaluate(rawUserItemData, rawItemData, newRawUserItemData)
-        sparkRecommenderExecute.recommend(rawUserItemData, rawItemData, newRawUserItemData)
+        sparkRecommenderExecute.evaluate(rawUserItemData, rawItemData, newRawUserItemData)
+//        sparkRecommenderExecute.recommend(rawUserItemData, rawItemData, newRawUserItemData)
 
     }
 }

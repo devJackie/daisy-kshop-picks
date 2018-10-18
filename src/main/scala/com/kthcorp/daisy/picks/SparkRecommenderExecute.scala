@@ -27,18 +27,20 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
     import spark.implicits._
     def preparation(
                        rawUserItemData: Dataset[String]): DataFrame = {
-        rawUserItemData.take(5).foreach(println)
         
-        val rawHashUserItemDataDF = rawUserItemData.map{ lines =>
+        val newRawUserItemDataDF = rawUserItemData.map{ lines =>
             lines.split(",") match {
                 case Array(user, item, count) => PreUserInfo(user.toString, user.hashCode, item.toInt, count.toInt)
                 case Array(user, item, _*) => PreUserInfo(user.toString, user.hashCode, item.toInt, 0)
                 case Array(user, _*) => PreUserInfo(user.toString, user.hashCode, 0, 0)
             }
         }.toDF("oriUser", "user", "item", "count")
-        rawHashUserItemDataDF.show(10, false)
-        rawHashUserItemDataDF
+        newRawUserItemDataDF.show(10, false)
+        // user, hashUser Map 데이터 생성
+        BroadcastInstance.getBroadCastUserItemData(spark.sparkContext, spark, newRawUserItemDataDF)
+        newRawUserItemDataDF
     }
+    
     def buildHashUserMap(rawUserItemData: Dataset[String]): scala.collection.Map[Int,String] = {
         rawUserItemData.flatMap { lines =>
             lines.split(",") match {
@@ -52,6 +54,7 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
                  rawUserItemData: Dataset[String],
                  rawItemData: Dataset[String],
                  newRawUserItemData: DataFrame): Unit = {
+        
         val trainData = newRawUserItemData.cache()
         
         val model = new ALS().
@@ -73,6 +76,7 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
     
         val userID = 145044192
 //        val userID = -777771416 // prediction 에 지수로 표시되는 데이터가 존재
+        val oriUserID = "201604428685"
         val existingItemIDs = trainData.
             filter($"user" === userID).
             select("item").as[Int].collect()
@@ -117,25 +121,31 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
         log.info(s"# oriUserItemDataDF show!")
         oriUserItemDataDF.filter($"user" isin (userID)).show(50, false)
 //        oriUserItemDataDF.filter($"user" isin (-777771416)).show(50, false)
-
-        // mapPartition
+        
         // 기존 dataframe 의 user, recommendations -> 신규 dataframe 의 user, item, prediction 으로 변환
         val recommDF = recommData.select($"user", explode($"recommendations")).select($"user", $"col.item", $"col.rating" as "prediction").toDF()
         log.info(s"# recommDF show!")
         recommDF.show(10, false)
+
+        // 위의 explode 쓴 쿼리 로직을 mapPartition 로직으로 교체할 수 있음
+        // mapPartition
 //        val recommDF = recommData.mapPartitions( rdd => {
-//            rdd.map(x => {
+//            //Iterator[(Int, Int, Double)]
+//            //Iterator[WrappedArray[(Int, Int, Double)]]
+//            rdd.map( x => {
 //                val user = (x.getAs[Int]("user"))
 //                val recommendations = x.getAs[mutable.WrappedArray[GenericRowWithSchema]]("recommendations")
+//
 //                var item = 0
-//                var prediction = 0.0f
-//                recommendations.map{ structField =>
-//                    item = structField.getAs[Int]("item")
-//                    prediction = structField.getAs[Float]("rating")
+//                var prediction = 0.0
+//                recommendations.map( array => {
+//                    item = array.getAs[Int]("item")
+//                    prediction = array.getAs[Float]("rating")
 //                    (item, prediction)
-//                }
-//                (user, item, prediction)
-//            })
+//                }).map( x => {
+//                    (user, x._1, x._2)
+//                })
+//            }).flatten
 //        }).toDF("user", "item", "prediction")
     
         log.info(s"# ${userID} recommDF show!")
@@ -179,10 +189,9 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
                 (findOriUser, item, BigDecimal(prediction).setScale(5, BigDecimal.RoundingMode.HALF_UP))
             })
         }).toDF("user", "item", "prediction")
-        log.info(s"# 201604428685(${userID}) finalRecommDF show!")
-//        log.info(s"# 201807539623(-777771416) finalRecommDF show!")
+        log.info(s"# ${oriUserID}(${userID}) finalRecommDF show!")
 //        finalRecommDF.show(10, false)
-        finalRecommDF.filter($"user" isin "201604428685").show(50,false)
+        finalRecommDF.filter($"user" isin (oriUserID)).show(50,false)
     
         // 전일자 날짜 생성
         val yyyyMMdd = DateTime.now().toString(DateTimeFormat.forPattern("yyyyMMdd"))
@@ -198,7 +207,6 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
         // broadcast unpersist 는 자동으로 되지만 확실하게 unpersist 해준다
         broadcastHashUser.unpersist()
     }
-    case class RecommUserData(user: String, item: Int, prediction: Double)
     
     def makeRecommendations(model: ALSModel, userID: Int, howMany: Int): DataFrame = {
         val toRecommend = model.itemFactors.
@@ -227,24 +235,13 @@ class SparkRecommenderExecute(private val spark: SparkSession) extends Serializa
         }.toDF("id", "name")
     }
     
-    def buildCounts(
-                       rawUserItemData: Dataset[String],
-                       bArtistAlias: Broadcast[Map[Int,Int]]): DataFrame = {
-        rawUserItemData.map { line =>
-            val Array(userID, itemID, count) = line.split(' ').map(_.toInt)
-            val finalArtistID = bArtistAlias.value.getOrElse(itemID, itemID)
-            (userID, finalArtistID, count)
-        }.toDF("user", "item", "count")
-    }
-    
     def evaluate(
                     rawUserItemData: Dataset[String],
                     rawItemData: Dataset[String],
                     newRawUserItemData: DataFrame): Unit = {
         
-        val bRawItemData = spark.sparkContext.broadcast(rawItemData)
         val allData = newRawUserItemData.cache()
-//        allData.show(50,false)
+
         val Array(trainData, cvData) = allData.randomSplit(Array(0.9, 0.1))
         trainData.cache()
         cvData.cache()
