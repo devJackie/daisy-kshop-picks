@@ -2,12 +2,17 @@ package com.kthcorp.daisy.picks
 
 import java.net.URI
 
-import com.kthcorp.daisy.picks.utils.{BroadcastInstance, CommonsUtil, HdfsUtil}
+import com.kthcorp.daisy.picks.utils.{BroadcastInstance, CommonsUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.ml.classification.DecisionTreeClassifier
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.recommendation.{ALS, ALSModel}
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.functions.{count, _}
@@ -18,16 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.{Map, mutable}
 import scala.util.Random
 
-case class PreUserInfo(oriUser: String, user: Int, item: Int, count: Int)
-
-case class OriUserInfo(user: Int, item: Int, count: Int)
-
-case class OriMappingUserInfo(user: String, item: Int, count: Int)
-
-/**
-	* create by devjackie on 2018.10.17
-	*/
-class SparkRecommenderExecute(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
+class TestSparkRecommenderExecute(private val spark: SparkSession) extends Serializable {
 
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
@@ -64,7 +60,8 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 		         rawUserItemData: Dataset[String],
 		         rawItemData: Dataset[String],
 		         trainData: DataFrame): Unit = {
-
+		log.info(s"# model start")
+		//        val trainData = newRawUserItemData.cache()
 		trainData.cache()
 
 		val model = new ALS().
@@ -204,6 +201,12 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 		//        finalRecommDF.show(10, false)
 		finalRecommDF.filter($"user" isin (oriUserID)).show(50, false)
 
+		// 전일자 날짜 생성
+		val yyyyMMdd = DateTime.now().toString(DateTimeFormat.forPattern("yyyyMMdd"))
+		val formatter = DateTimeFormat.forPattern("yyyyMMdd")
+		val currDate = formatter.parseDateTime(yyyyMMdd)
+		val p_yymmdd = currDate.minusDays(1).toString(DateTimeFormat.forPattern("yyyyMMdd"))
+
 		// 최종 추천 결과 hdfs 저장
 		//        finalRecommDF.coalesce(1).write
 		//            .mode(SaveMode.Overwrite)
@@ -314,8 +317,6 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 
 		allData.cache()
 
-		// model의 추첨 점수가 1 이상인 경우에 대한 설명
-		// https://stackoverflow.com/questions/46904078/spark-als-recommendation-system-have-value-prediction-greater-than-1
 		val model = new ALS()
 			.setSeed(Random.nextLong())
 			.setImplicitPrefs(true)
@@ -434,7 +435,6 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 				val item = (x.getAs[Int]("item"))
 				val prediction = (x.getAs[Float]("prediction"))
 				val findOriUser = bcHashUser.value.getOrElse(user, user.toString)
-				//                (findOriUser, item, prediction)
 				//https://stackoverflow.com/questions/11106886/scala-doubles-and-precision
 				(findOriUser, item, BigDecimal(prediction).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble) // 지수 표기 제외 - 소수점 2자리까지만
 				//                (findOriUser, item, "%.2f".format(prediction).toDouble)
@@ -445,9 +445,18 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 		log.info(s"# ${oriUserID}(${userID}) finalRecommDF show!")
 		finalRecommDF.filter($"user" isin (oriUserID)).show(false)
 
+		// 전일자 조회
+		val p_yymmdd = CommonsUtil.getMinus1DaysDate()
+
 		// 최종 추천 결과 hdfs 저장
 		log.info(s"# hdfs save start")
-		HdfsUtil.saveAsHdfsForRecomm(finalRecommDF, p_yymmdd)
+		//        finalRecommDF.withColumn("prediction", expr("CAST(prediction AS FLOAT)")).coalesce(1).write
+		finalRecommDF.coalesce(1).write
+			.mode(SaveMode.Overwrite)
+			//            .format("com.databricks.spark.csv")
+			.option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/1/p_yymmdd=" + p_yymmdd)
+		//            .option("delimiter", "\036").csv("hdfs://daisydp/ml/test/devjackie/picks/result/1/p_yymmdd=" + p_yymmdd)
+		//        finalRecommDF.write.mode(SaveMode.Overwrite).option("delimiter", "\u0036").parquet("hdfs://daisydp/ml/test/devjackie/picks/result/2")
 		log.info(s"# hdfs save end")
 
 		// broadcast unpersist 는 자동으로 되지만 확실하게 unpersist 해준다
@@ -455,6 +464,16 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 		recommDF.unpersist(true)
 		model.userFactors.unpersist(true)
 		model.itemFactors.unpersist(true)
+
+		// spark context hdfs checkPoint 삭제
+		// http://techidiocy.com/java-lang-illegalargumentexception-wrong-fs-expected-file/
+		val hadoopConf = spark.sparkContext.hadoopConfiguration
+		val fs = FileSystem.get(new URI("hdfs://localhost"), new Configuration(hadoopConf))
+		val checkPointPath = new Path("hdfs://localhost" + "/tmp/p_yymmdd=" + p_yymmdd + "/")
+		if (fs.exists(checkPointPath)) {
+			log.info(fs.getFileStatus(checkPointPath))
+			fs.delete(checkPointPath, true)
+		}
 	}
 
 	def areaUnderCurve(
@@ -540,5 +559,63 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 		resAllData.createOrReplaceTempView("tempAllData")
 		//        spark.sql("select * from tempAllData order by prediction desc").show(20,false)
 		resAllData
+	}
+
+	def evaluate1(trainData: DataFrame, testData: DataFrame): Unit = {
+
+		val inputCols = trainData.columns.filter(_ != "Cover_Type")
+		val assembler = new VectorAssembler().
+			setInputCols(inputCols).
+			setOutputCol("featureVector")
+
+		val classifier = new DecisionTreeClassifier().
+			setSeed(Random.nextLong()).
+			setLabelCol("Cover_Type").
+			setFeaturesCol("featureVector").
+			setPredictionCol("prediction")
+
+		val pipeline = new Pipeline().setStages(Array(assembler, classifier))
+
+		val paramGrid = new ParamGridBuilder().
+			addGrid(classifier.impurity, Seq("gini", "entropy")).
+			addGrid(classifier.maxDepth, Seq(1, 20)).
+			addGrid(classifier.maxBins, Seq(40, 300)).
+			addGrid(classifier.minInfoGain, Seq(0.0, 0.05)).
+			build()
+
+		val multiclassEval = new MulticlassClassificationEvaluator().
+			setLabelCol("Cover_Type").
+			setPredictionCol("prediction").
+			setMetricName("accuracy")
+
+		val validator = new TrainValidationSplit().
+			setSeed(Random.nextLong()).
+			setEstimator(pipeline).
+			setEvaluator(multiclassEval).
+			setEstimatorParamMaps(paramGrid).
+			setTrainRatio(0.9)
+
+		val validatorModel = validator.fit(trainData)
+
+		val paramsAndMetrics = validatorModel.validationMetrics.
+			zip(validatorModel.getEstimatorParamMaps).sortBy(-_._1)
+
+		paramsAndMetrics.foreach { case (metric, params) =>
+			println(metric)
+			println(params)
+			println()
+		}
+
+		val bestModel = validatorModel.bestModel
+
+		println(bestModel.asInstanceOf[PipelineModel].stages.last.extractParamMap)
+
+		println(validatorModel.validationMetrics.max)
+
+		val testAccuracy = multiclassEval.evaluate(bestModel.transform(testData))
+		println(testAccuracy)
+
+		val trainAccuracy = multiclassEval.evaluate(bestModel.transform(trainData))
+		println(trainAccuracy)
 	}
 }

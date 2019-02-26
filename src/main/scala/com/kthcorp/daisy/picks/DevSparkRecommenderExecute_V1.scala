@@ -4,12 +4,11 @@ import com.kthcorp.daisy.picks.utils.{BroadcastInstance, HdfsUtil}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.classification.DecisionTreeClassifier
-import org.apache.spark.ml.evaluation.{MulticlassClassificationEvaluator, RegressionEvaluator}
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.recommendation.{ALS, ALSModel}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.mllib.evaluation.RegressionMetrics
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{count, _}
 
@@ -17,7 +16,7 @@ import scala.collection.Map
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-class DevSparkRecommenderExecute(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
+class DevSparkRecommenderExecute_V1(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
 
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
@@ -529,76 +528,6 @@ class DevSparkRecommenderExecute(private val spark: SparkSession, private val p_
 		cvData.unpersist()
 	}
 
-	def evaluateTest(newRawUserItemData: DataFrame): Unit = {
-
-		val allData = newRawUserItemData.cache()
-
-		val Array(trainData, cvData) = allData.randomSplit(Array(0.8, 0.2))
-		trainData.cache()
-		cvData.cache()
-
-		val allArtistIDs = allData.select("item").as[Int].distinct().collect()
-		val bAllArtistIDs = spark.sparkContext.broadcast(allArtistIDs)
-
-		val mostListenedAUC = areaUnderCurve(cvData, bAllArtistIDs, predictMostListened(trainData))
-		println(mostListenedAUC)
-
-		val evaluations =
-			for (rank <- Seq(28);
-			     regParam <- Seq(1.0);
-			     alpha <- Seq(40.0))
-			//			Root-mean-square error = 1.2967277793109095
-			//		  (0.7007122208867379,(28,1.0,40.0))
-			//			for (rank     <- Seq(10);
-			//			     regParam <- Seq(1.0);
-			//			     alpha    <- Seq(1.0))
-			//		Root-mean-square error = 1.6553940371081544
-			//		(0.8096017849093641,(10,1.0,1.0))
-				yield {
-					val model = new ALS().
-						setSeed(Random.nextLong()).
-						setImplicitPrefs(true).
-						setRank(rank).setRegParam(regParam).
-						setAlpha(alpha).setMaxIter(20).
-						setUserCol("user").setItemCol("item").
-						setRatingCol("count").setPredictionCol("prediction").
-						setColdStartStrategy("drop"). // Note we set cold start strategy to 'drop' to ensure we don't get NaN evaluation metrics (NaN 제거)
-						fit(trainData)
-
-					val predictions = model.transform(cvData)
-
-					val evaluator = new RegressionEvaluator()
-						.setMetricName("rmse")
-						.setLabelCol("count")
-						.setPredictionCol("prediction")
-
-					val rmse = evaluator.evaluate(predictions)
-					println(s"Root-mean-square error = $rmse")
-
-					//					val regComparison = predictions.select("count", "prediction")
-					//  					.rdd.map(x => (x.getFloat(0).toDouble, x.getFloat(1).toDouble))
-					//					val metrics = new RegressionMetrics(regComparison)
-
-					//https://www.programcreek.com/scala/org.apache.spark.mllib.evaluation.RegressionMetrics
-					val labels = predictions.select("count").rdd.map(x => (x.getInt(0).toDouble))
-					val regComparison = predictions.select("prediction").rdd.map(x => (x.getFloat(0).toDouble))
-					val RMSE = new RegressionMetrics(regComparison.zip(labels)).rootMeanSquaredError
-					println(s"  Root mean squared error (RMSE): $RMSE")
-
-					val auc = areaUnderCurve(cvData, bAllArtistIDs, model.transform)
-
-					model.userFactors.unpersist()
-					model.itemFactors.unpersist()
-
-					(auc, (rank, regParam, alpha))
-				}
-
-		evaluations.sorted.reverse.foreach(println)
-
-		trainData.unpersist()
-		cvData.unpersist()
-	}
-
 	//    def modelSave(
 	//                     rawUserItemData: Dataset[String],
 	//                     rawItemData: Dataset[String],
@@ -627,7 +556,7 @@ class DevSparkRecommenderExecute(private val spark: SparkSession, private val p_
 	//
 	////        // broadcast unpersist 는 자동으로 되지만 확실하게 unpersist 해준다
 	////        model.userFactors.unpersist(true)
-	////        model.yitemFactors.unpersist(true)
+	////        model.itemFactors.unpersist(true)
 	//    }
 	//
 	//    def recommend(

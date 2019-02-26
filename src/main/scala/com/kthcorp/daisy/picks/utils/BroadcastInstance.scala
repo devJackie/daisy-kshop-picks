@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import scala.collection.mutable
 
 /**
-  * spark broadcast instance
+  * create by devjackie on 2018.10.17
   */
 object BroadcastInstance extends Serializable {
     @transient lazy val log = Logger.getRootLogger()

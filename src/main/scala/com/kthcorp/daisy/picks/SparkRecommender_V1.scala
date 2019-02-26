@@ -12,7 +12,7 @@ import org.apache.spark.sql.{Dataset, SparkSession}
 /**
 	* create by devjackie on 2018.10.17
 	*/
-object SparkRecommender {
+object SparkRecommender_V1 {
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
 	Logger.getLogger("org.apache.hadoop").setLevel(Level.OFF)
@@ -47,7 +47,7 @@ object SparkRecommender {
 			//            val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_6month.txt").repartition(10)
 			//            val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_1year.txt").repartition(10)
 
-			val sparkRecommenderExecute = new SparkRecommenderExecute(spark, p_yymmdd)
+			val sparkRecommenderExecute = new SparkRecommenderExecute_V1(spark, p_yymmdd)
 			// user, hashUser Map 데이터 생성
 			var bcUserItemData = BroadcastInstance.getBroadCastUserItemData(spark.sparkContext, spark, sparkRecommenderExecute.preparation(rawUserItemData))
 			//        testSparkRecommenderExecute.model(rawUserItemData, rawItemData, bcUserItemData.value)

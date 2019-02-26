@@ -27,7 +27,7 @@ case class OriMappingUserInfo(user: String, item: Int, count: Int)
 /**
 	* create by devjackie on 2018.10.17
 	*/
-class SparkRecommenderExecute(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
+class SparkRecommenderExecute_V1(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
 
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)

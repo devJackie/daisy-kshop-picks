@@ -1,24 +1,22 @@
-PPAS :
-  URL : "jdbc:mysql://211.113.71.67:3306/kthta?serverTimezone=UTC&autoReconnect=true"
+# mysql
+MYSQL :
+  URL : "jdbc:mysql://daisy-kshop-cl02:3306/boslavedev?createDatabaseIfNotExist=true&autoReconnect=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul"
   USERNAME : "daisy"
   PASSWORD : "daisy!"
-  CONNECTION_INIT_SIZE : "5"
-  CONNECTION_MAX_ACTIVE : "10"
-  CONNECTION_MIN_IDLE : "5"
+  CONNECTION_INIT_SIZE : "4"
+  CONNECTION_MAX_TOTAL : "20"
+  CONNECTION_MAX_IDLE : "20"
+  CONNECTION_MIN_IDLE : "4"
+  EVICTION_RUN : "4"
+  EVICTION_RUN_MILLIS : "30000"
+
+# common
 
 # checkpoint
 CHECKPOINT_DIR :
-   SPARK_TOPIC : "/data1/spark/checkpoint"
-
-# spark 주기
-DURATION :
-  SPARK_RECOMM_SLIDE_SECOND : "300"
-  SPARK_RECOMM_WINDOW_SECOND : "600"
-# 전처리
-SPARK_ODS :
-  POS_TYPE : "Noun|ProperNoun"
+   SPARK_DIR : "/data1/spark/checkpoint"
 
 # delimiter
 DELIMITER :
-  KEYWORD : "|"
-  TOPIC : "^"
+  PIPE : "|"
+  CTRL-^ : "\\036" # ascii 8진수

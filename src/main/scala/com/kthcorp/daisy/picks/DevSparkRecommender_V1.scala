@@ -5,7 +5,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Dataset, SparkSession}
 
-object DevSparkRecommender {
+object DevSparkRecommender_V1 {
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
 	Logger.getLogger("org.apache.hadoop").setLevel(Level.OFF)
@@ -66,7 +66,7 @@ object DevSparkRecommender {
 			//            val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_1year.txt").repartition(10)
 			//            val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_3year.txt").repartition(10)
 
-			val devSparkRecommenderExecute = new DevSparkRecommenderExecute(spark, p_yymmdd)
+			val devSparkRecommenderExecute = new DevSparkRecommenderExecute_V1(spark, p_yymmdd)
 
 			////////////////////////////////////////////////////////
 			// 구매이력 10개이하 user 가져오기
@@ -93,9 +93,8 @@ object DevSparkRecommender {
 			var bcUserItemData = BroadcastInstance.getBroadCastUserItemData(spark.sparkContext, spark, devSparkRecommenderExecute.preparation(rawUserItemData))
 			//            devSparkRecommenderExecute.model(rawUserItemData, rawItemData, bcUserItemData.value)
 			//            devSparkRecommenderExecute.evaluate(bcUserItemData.value)
-			devSparkRecommenderExecute.evaluateTest(bcUserItemData.value)
 			//            devSparkRecommenderExecute.modelSave(rawUserItemData, rawItemData, bcUserItemData.value)
-			//            devSparkRecommenderExecute.recommend(rawUserItemData, rawItemData, bcUserItemData.value)
+			devSparkRecommenderExecute.recommend(rawUserItemData, rawItemData, bcUserItemData.value)
 
 			// spark context hdfs checkPoint 삭제
 			// http://techidiocy.com/java-lang-illegalargumentexception-wrong-fs-expected-file/
