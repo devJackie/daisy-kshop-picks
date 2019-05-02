@@ -13,6 +13,7 @@ import scala.collection.JavaConversions
 /**
 	* create by devjackie on 2018.10.17
 	*/
+/** 테스트 **/
 object SparkRecommender {
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.INFO)
