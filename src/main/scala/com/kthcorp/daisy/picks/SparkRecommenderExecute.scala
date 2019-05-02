@@ -27,7 +27,7 @@ case class OriMappingUserInfo(user: String, item: Int, count: Int)
 /**
 	* create by devjackie on 2018.10.17
 	*/
-class SparkRecommenderExecute(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
+class SparkRecommenderExecute(private val spark: SparkSession, private val profiles: String, private val p_yymmdd: String, private val p_hh: String) extends Serializable {
 
 	@transient lazy val log = Logger.getRootLogger()
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
@@ -319,7 +319,7 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 		val model = new ALS()
 			.setSeed(Random.nextLong())
 			.setImplicitPrefs(true)
-			.setRank(10).setRegParam(1.0).setAlpha(40.0).setMaxIter(100)
+			.setRank(28).setRegParam(1.0).setAlpha(40.0).setMaxIter(20)
 			.setUserCol("user").setItemCol("item")
 			.setRatingCol("count").setPredictionCol("prediction")
 			.setCheckpointInterval(2)
@@ -447,7 +447,8 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val p_yym
 
 		// 최종 추천 결과 hdfs 저장
 		log.info(s"# hdfs save start")
-		HdfsUtil.saveAsHdfsForRecomm(finalRecommDF, p_yymmdd)
+//		HdfsUtil.saveAsHdfsForRecomm(finalRecommDF, p_yymmdd)
+		HdfsUtil.saveAsHdfsForRecomm(spark, finalRecommDF, profiles, CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_OUT_S"), p_yymmdd, p_hh)
 		log.info(s"# hdfs save end")
 
 		// broadcast unpersist 는 자동으로 되지만 확실하게 unpersist 해준다
