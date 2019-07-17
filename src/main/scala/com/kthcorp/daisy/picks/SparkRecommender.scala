@@ -54,41 +54,25 @@ object SparkRecommender {
 			// https://stackoverflow.com/questions/31484460/spark-gives-a-stackoverflowerror-when-training-using-als
 			// java StackOverflowError 시 체크 포인트 설정
 			// ALS는 너무 긴 lineage chain (집행자의 deserialization 원인 stackoverflow)으로 StackOverflow 발생,
-			// 하지만 우리는 계보 체인을 깰 수 없기 때문에 DAGScheduler를 재귀적으로 변경 하여 이 문제를 해결할 경우 확실하지 않습니다.
-			// 하지만 그것은 잠재적 인 stackoverflow 드라이버에서 피할 것이다. (예외가 반복적으로 단계를 만들 때 발생했습니다)
+			// 하지만 우리는 계보 체인을 깰 수 없기 때문에 DAGScheduler를 재귀적으로 변경 하여 이 문제를 해결할 경우 확실하지 않다.
+			// 하지만 그것은 잠재적인 stackoverflow 드라이버에서 피할 것이다. (예외가 반복적으로 단계를 만들 때 발생했다)
 			// 전일자 조회
 			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
 			val p_hh = CommonsUtil.getTimeForHour()
-//			spark.sparkContext.setCheckpointDir("hdfs://daisydp/tmp/p_yymmdd=" + p_yymmdd)
-			HdfsUtil.setHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("COMM_KSHOP_DAISY_PICKS"), p_yymmdd, p_hh)
 
-//			val base = CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_URL")
-//			log.info(s"base : ${base}")
-//			val itemNmPath = "hdfs://daisykshop/tmp/kth_item_item_nm_data.txt"
-//			val test1 = CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_URL") + CommonsUtil.getYaml(profiles).get("COMMON").get("ITEM_NM")
-//			val test2 = CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_URL") + CommonsUtil.getYaml(profiles).get("COMMON").get("RESULT_3MONTH")
-//			val rawItemData: Dataset[String] = spark.read.textFile(test1).repartition(10)
-//			val rawUserItemData: Dataset[String] = spark.read.textFile(test2).repartition(10)
-//			val rawItemData: Dataset[String] = spark.read.textFile(spark.sparkContext.getConf.get("HDFS_BASE_ITEM_NM_URL")).repartition(10)
-//			val rawUserItemData: Dataset[String] = spark.read.textFile(spark.sparkContext.getConf.get("HDFS_BASE_RESULT_3MONTH_URL")).repartition(10)
-//			val rawItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_ITEM_NM_URL")).repartition(10)
-//			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_RESULT_3MONTH_URL")).repartition(10)
-			val rawItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_ITEM_NM_URL")).repartition(10)
+			HdfsUtil.setHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("COMM_KSHOP_DAISY_PICKS"), p_yymmdd)
+
 			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_RESULT_3MONTH_URL")).repartition(10)
-
-//      val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_6month.txt").repartition(10)
-//      val rawUserItemData: Dataset[String] = spark.read.textFile(base + "test_result_1year.txt").repartition(10)
+//			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_IN_S") + "/p_yymmdd=" + p_yymmdd).repartition(10)
 
 			val sparkRecommenderExecute = new SparkRecommenderExecute(spark, profiles, p_yymmdd, p_hh)
 			// user, hashUser Map 데이터 생성
 			var bcUserItemData = BroadcastInstance.getBroadCastUserItemData(spark.sparkContext, spark, sparkRecommenderExecute.preparation(rawUserItemData))
-//      testSparkRecommenderExecute.model(rawUserItemData, rawItemData, bcUserItemData.value)
-//      testSparkRecommenderExecute.evaluate(rawUserItemData, rawItemData, bcUserItemData.value)
-			sparkRecommenderExecute.recommend(rawUserItemData, rawItemData, bcUserItemData.value)
+			sparkRecommenderExecute.recommend(rawUserItemData, bcUserItemData.value)
 
 			// spark context hdfs checkPoint 삭제
 			// http://techidiocy.com/java-lang-illegalargumentexception-wrong-fs-expected-file/
-			HdfsUtil.delHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("COMM_KSHOP_DAISY_PICKS"), p_yymmdd, p_hh)
+			HdfsUtil.delHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("COMM_KSHOP_DAISY_PICKS"), p_yymmdd)
 			spark.stop()
 		} catch {
 			case e: Exception => log.error("", e)

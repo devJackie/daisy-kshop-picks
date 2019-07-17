@@ -1,0 +1,30 @@
+--- # develop
+#spark
+SPARK:
+  BATCH_SLIDE_DURATION : "60"
+  BATCH_DURATION : ""
+  SLIDE_DURATION : ""
+  WINDOW_DURATION : ""
+
+# HDFS
+HDFS:
+  HDFS_DEFAULT_URL: "hdfs://daisykshop"
+  HDFS_TMP_URL: "hdfs://daisykshop/tmp/"
+  HDFS_BASE_URL: "hdfs://daisykshop/tmp/"
+  HDFS_BASE_ITEM_NM_URL: "hdfs://daisykshop/tmp/kth_item_item_nm_data.txt"
+  HDFS_BASE_RESULT_3MONTH_URL: "hdfs://daisykshop/tmp/test_result_3month.txt"
+  HDFS_MART_URL: "hdfs://daisykshop/daisy-kshop/daisykw.db/mart/"
+  MART_RMD_CST_PRD_PRCH_OUT_S: "MART_RMD_CST_PRD_PRCH_OUT_S"
+
+# common
+COMMON:
+  COMM_KSHOP_DAISY_PICKS: "kshop-daisy-picks"
+
+# checkpoint
+CHECKPOINT_DIR :
+   SPARK_DIR : "/data1/spark/checkpoint"
+
+# delimiter
+DELIMITER :
+  PIPE : "|"
+  CTRL-^ : "\\036" # ascii 8진수

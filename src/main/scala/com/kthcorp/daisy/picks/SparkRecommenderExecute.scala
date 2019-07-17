@@ -307,7 +307,6 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 
 	def recommend(
 		             rawUserItemData: Dataset[String],
-		             rawItemData: Dataset[String],
 		             allData: DataFrame): Unit = {
 
 		log.info(s"# recommend start")
@@ -328,41 +327,6 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 
 		allData.unpersist(true)
 
-		//        val userID = 145044192
-		//        val userID = -777771416 // prediction 에 지수로 표시되는 데이터가 존재
-		//        val userID = 81099459 // 지수가 많음
-		//        val userID = 940930974 // 지수가 많음
-		//        val userID = 890823203 // 지수가 많음
-		//        val oriUserID = "201702579345" // 지수가 많음
-		//        val userID = -1775785176 // 추천 예상 평가 점수가 높음 (구매이력 4개)
-		//        val oriUserID = "201610037428" // 추천 예상 평가 점수가 높음 (구매이력 4개)
-		//        val userID = -1775261572 // 예상 평가 점수 0.4~0.6 (구매이력 1개)
-		//        val oriUserID = "201806186819" // 예상 평가 점수 0.4~0.6 (구매이력 1개)
-		//        val userID = -1774947186 // 예상 평가 점수 0.6~0.9 (구매이력 5개)
-		//        val oriUserID = "201610044826" // 예상 평가 점수 0.6~0.9 (구매이력 5개)
-		val userID = -1694473283 // 예상 평가 점수 0.4~0.5 (구매이력 2개)
-		val oriUserID = "201801921450" // 예상 평가 점수 0.4~0.5 (구매이력 2개)
-		//        val userID = 1062038887 // 예상 평가 점수 0.5~0.7 (구매이력 3개, 남성, 여성 제품 구매)
-		//        val oriUserID = "201605536436" // 예상 평가 점수 0.5~0.7 (구매이력 3개, 남성, 여성 제품 구매)
-		//        val userID = 428891843 // 예상 평가 점수 0.4~0.6 (구매이력 4개, 구매이력중 value 가 전부 1)
-		//        val oriUserID = "201609908404" // 예상 평가 점수 0.4~0.6 (구매이력 4개, 구매이력중 value 가 전부 1)
-		//        val userID = -2050339956 // 예상 평가 점수 1이상 (구매이력 16개, 구매이력중 value 가 2이상인게 1개)
-		//        val oriUserID = "201509997338" // 예상 평가 점수 1이상 (구매이력 16개, 구매이력중 value 가 2이상인게 1개)
-		//        val userID = -1654122711 // 예상 평가 점수 0.7~0.9 (구매이력 3개, 구매이력중 value 가 2이상인게 2개)
-		//        val oriUserID = "201602373784" // 예상 평가 점수 0.7~0.9 (구매이력 3개, 구매이력중 value 가 2이상인게 2개)
-
-		allData.createOrReplaceTempView("temp1")
-		spark.sql(s"select oriUser, item, count from temp1 where oriUser = '${oriUserID}'  ").show(false)
-
-		val existingItemIDs = allData.
-			filter($"user" === userID).
-			select("item").as[Int].collect()
-
-		val itemByID = buildItemByID(rawItemData)
-		log.info(s">> user(${userID}) 구매 정보 => item id, name")
-		itemByID.filter($"id" isin (existingItemIDs: _*)).show(1000, false)
-
-		log.info(s">> user(${userID}) recommendations")
 		val recommData = model.recommendForAllUsers(10)
 		//        recommData.filter($"id" isin (userID)).show(false)
 
@@ -394,7 +358,7 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 		//            .cache()
 		log.info(s"# recommDF show!")
 		recommDF.cache()
-		log.info(s"# ${userID} recommDF show!")
+
 		//        recommDF.filter($"user" isin (userID)).show(false)
 
 		// 1-1 user 구매내역정보와 user 추천결과정보를 매핑
@@ -420,13 +384,6 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 		log.info(s"# filterRecommDF show!")
 		//        filterRecommDF.filter($"user" isin (userID)).show(50,false)
 
-		log.info(s"# recommDF item name show!")
-		// item, item 명
-		val itemByRecommID = itemByID
-		val itemByRecommIDDF = recommDF.filter($"user" isin (userID)).select('item as "recommItem").join(itemByRecommID, $"id" === $"recommItem", "left_outer").
-			select("recommItem", "name")
-		itemByRecommIDDF.show(false)
-
 		// hashCode 하기전 user ID 로 다시 변환한다
 		val finalRecommDF = filterRecommDF.mapPartitions(rdd => {
 			rdd.map(x => {
@@ -442,13 +399,11 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 		}).toDF("user", "item", "prediction")
 
 		filterRecommDF.unpersist(false)
-		log.info(s"# ${oriUserID}(${userID}) finalRecommDF show!")
-		finalRecommDF.filter($"user" isin (oriUserID)).show(false)
 
 		// 최종 추천 결과 hdfs 저장
 		log.info(s"# hdfs save start")
 //		HdfsUtil.saveAsHdfsForRecomm(finalRecommDF, p_yymmdd)
-		HdfsUtil.saveAsHdfsForRecomm(spark, finalRecommDF, profiles, CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_OUT_S"), p_yymmdd, p_hh)
+		HdfsUtil.saveAsHdfsForRecomm(spark, finalRecommDF, profiles, CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_OUT_S"), p_yymmdd)
 		log.info(s"# hdfs save end")
 
 		// broadcast unpersist 는 자동으로 되지만 확실하게 unpersist 해준다

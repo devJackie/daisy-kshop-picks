@@ -2,7 +2,7 @@ package com.kthcorp.daisy.picks
 
 import java.net.URI
 
-import com.kthcorp.daisy.picks.utils.{BroadcastInstance, CommonsUtil}
+import com.kthcorp.daisy.picks.utils.{BroadcastInstance, CommonsUtil, HdfsUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.{Level, Logger}
@@ -20,10 +20,11 @@ object SparkRecommender_V1 {
 	def main(args: Array[String]): Unit = {
 
 		try {
-			// 필수 파라미터 체크 (app 명)
-			val Array(sparkAppName) = args
-			if (args.length != 1) {
-				System.exit(1)
+			// sparkAppName, profiles (LOCAL, DEVELOP, PRODUCTION) 인자 값으로 받음
+			val Array(sparkAppName, profiles) = args match {
+				case Array(arg0, arg1) => Array(arg0, arg1)
+				case Array(arg0, _*) => Array(arg0, "PRODUCTION")
+				case Array(_*) => Array("dev-spark-recommender", "PRODUCTION")
 			}
 
 			val sparkConf = new SparkConf().setAppName(sparkAppName)
@@ -38,7 +39,9 @@ object SparkRecommender_V1 {
 			// 하지만 그것은 잠재적 인 stackoverflow 드라이버에서 피할 것이다. (나는이 예외가 반복적으로 단계를 만들 때 발생했습니다)
 			// 전일자 조회
 			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
-			spark.sparkContext.setCheckpointDir("hdfs://daisydp/tmp/p_yymmdd=" + p_yymmdd)
+			val p_hh = CommonsUtil.getTimeForHour()
+//			spark.sparkContext.setCheckpointDir("hdfs://daisydp/tmp/p_yymmdd=" + p_yymmdd)
+			HdfsUtil.setHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("KSHOP-DAISY-PICKS"), p_yymmdd, p_hh)
 
 
 			val base = "hdfs://daisydp/ml/test/devjackie/kth/"
@@ -56,13 +59,7 @@ object SparkRecommender_V1 {
 
 			// spark context hdfs checkPoint 삭제
 			// http://techidiocy.com/java-lang-illegalargumentexception-wrong-fs-expected-file/
-			val hadoopConf = spark.sparkContext.hadoopConfiguration
-			val fs = FileSystem.get(new URI("hdfs://daisydp"), new Configuration(hadoopConf))
-			val checkPointPath = new Path("hdfs://daisydp" + "/tmp/p_yymmdd=" + p_yymmdd + "/")
-			if (fs.exists(checkPointPath)) {
-				log.info(fs.getFileStatus(checkPointPath))
-				fs.delete(checkPointPath, true)
-			}
+			HdfsUtil.delHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("KSHOP-DAISY-PICKS"), p_yymmdd, p_hh)
 			spark.stop()
 		} catch {
 			case e: Exception => log.error("", e)

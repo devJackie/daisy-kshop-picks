@@ -1,6 +1,7 @@
 package com.kthcorp.daisy.picks
 
 import com.kthcorp.daisy.picks.utils.{BroadcastInstance, HdfsUtil}
+import org.apache.commons.logging.LogFactory
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.classification.DecisionTreeClassifier
@@ -18,11 +19,9 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 class DevSparkRecommenderExecute(private val spark: SparkSession, private val p_yymmdd: String) extends Serializable {
-
-	@transient lazy val log = Logger.getRootLogger()
+	@transient lazy val log = LogFactory.getLog("DRIVER-LOG:")
 	Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
 	Logger.getLogger("org.apache.hadoop").setLevel(Level.OFF)
-
 	import spark.implicits._
 
 	def preparationMakeData(

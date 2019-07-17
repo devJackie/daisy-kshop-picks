@@ -13,15 +13,16 @@ object DevSparkRecommender_V1 {
 	def main(args: Array[String]): Unit = {
 
 		try {
-			// 필수 파라미터 체크 (app 명)
-			val Array(sparkAppName) = args
-			if (args.length != 1) {
-				System.exit(1)
+			// sparkAppName, profiles (LOCAL, DEVELOP, PRODUCTION) 인자 값으로 받음
+			val Array(sparkAppName, profiles) = args match {
+				case Array(arg0, arg1) => Array(arg0, arg1)
+				case Array(arg0, _*) => Array(arg0, "PRODUCTION")
+				case Array(_*) => Array("test-spark-recommender", "PRODUCTION")
 			}
 			// 상용
-			//            val sparkConf = new SparkConf().setAppName(sparkAppName)
-			//            sparkConf.set("spark.sql.crossJoin.enabled", "true")
-			//            sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+//            val sparkConf = new SparkConf().setAppName(sparkAppName)
+//            sparkConf.set("spark.sql.crossJoin.enabled", "true")
+//            sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 
 			// 테스트
 			val sparkConf = new SparkConf().setMaster("local[*]").setAppName(sparkAppName)
@@ -30,10 +31,10 @@ object DevSparkRecommender_V1 {
 			sparkConf.set("deploy-mode", "cluster")
 			sparkConf.set("spark.driver.memory", "4g")
 			sparkConf.set("spark.executor.memory", "8g")
-			//            sparkConf.set("spark.executor.cores", "2")
-			//            sparkConf.set("spark.executor.instances", "2")
-			//            sparkConf.set("spark.jars", "jars/daisy-kshop-picks_2.11-1.0.jar")
-			//            sparkConf.set("spark.default.parallelism", "4")
+//            sparkConf.set("spark.executor.cores", "2")
+//            sparkConf.set("spark.executor.instances", "2")
+//            sparkConf.set("spark.jars", "jars/daisy-kshop-picks_2.11-1.0.jar")
+//            sparkConf.set("spark.default.parallelism", "4")
 			sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 
 			val spark = SparkSession.builder().config(sparkConf).getOrCreate()
@@ -46,12 +47,14 @@ object DevSparkRecommender_V1 {
 			// (이 예외는 반복적으로 단계를 만들 때 발생했다)
 			// 전일자 조회
 			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
-			HdfsUtil.setHdfsCheckPointDir(spark, p_yymmdd)
-			//            spark.sparkContext.setCheckpointDir("hdfs://localhost/tmp/p_yymmdd=" + p_yymmdd)
-			//            spark.sparkContext.setCheckpointDir("hdfs://daisydp/tmp/p_yymmdd=" + p_yymmdd)
+			val p_hh = CommonsUtil.getTimeForHour()
+//			HdfsUtil.setHdfsCheckPointDir(spark, p_yymmdd)
+			HdfsUtil.setHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("KSHOP-DAISY-PICKS"), p_yymmdd, p_hh)
+//      spark.sparkContext.setCheckpointDir("hdfs://localhost/tmp/p_yymmdd=" + p_yymmdd)
+//      spark.sparkContext.setCheckpointDir("hdfs://daisydp/tmp/p_yymmdd=" + p_yymmdd)
 
 			// 상용
-			//            val base = "hdfs://daisydp/ml/test/devjackie/kth/"
+//      val base = "hdfs://daisydp/ml/test/devjackie/kth/"
 			// 테스트
 			val base = "hdfs://localhost/user/devjackie/kth/"
 			//            val rawUserItemData: Dataset[String] = spark.read.textFile(base + "kth_item_user_data.txt").repartition(10)
@@ -98,7 +101,8 @@ object DevSparkRecommender_V1 {
 
 			// spark context hdfs checkPoint 삭제
 			// http://techidiocy.com/java-lang-illegalargumentexception-wrong-fs-expected-file/
-			HdfsUtil.delHdfsCheckPointDir(spark, p_yymmdd)
+			HdfsUtil.delHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("KSHOP-DAISY-PICKS"), p_yymmdd, p_hh)
+//			HdfsUtil.delHdfsCheckPointDir(spark, p_yymmdd)
 			spark.stop()
 		} catch {
 			case e: Exception => log.error("", e)

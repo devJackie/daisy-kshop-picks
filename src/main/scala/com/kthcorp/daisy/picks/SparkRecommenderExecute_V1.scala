@@ -18,12 +18,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.{Map, mutable}
 import scala.util.Random
 
-case class PreUserInfo(oriUser: String, user: Int, item: Int, count: Int)
-
-case class OriUserInfo(user: Int, item: Int, count: Int)
-
-case class OriMappingUserInfo(user: String, item: Int, count: Int)
-
 /**
 	* create by devjackie on 2018.10.17
 	*/
