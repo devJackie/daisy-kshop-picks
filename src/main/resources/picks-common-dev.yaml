@@ -14,7 +14,10 @@ HDFS:
   HDFS_BASE_ITEM_NM_URL: "hdfs://daisykshop/tmp/kth_item_item_nm_data.txt"
   HDFS_BASE_RESULT_3MONTH_URL: "hdfs://daisykshop/tmp/test_result_3month.txt"
   HDFS_MART_URL: "hdfs://daisykshop/daisy-kshop/daisykw.db/mart/"
+  MART_RMD_CST_PRD_PRCH_IN_S: "MART_RMD_CST_PRD_PRCH_IN_S"
   MART_RMD_CST_PRD_PRCH_OUT_S: "MART_RMD_CST_PRD_PRCH_OUT_S"
+  MART_RMD_CST_PRD_INQ_IN_S: "MART_RMD_CST_PRD_INQ_IN_S"
+  MART_RMD_CST_PRD_INQ_OUT_S: "MART_RMD_CST_PRD_INQ_OUT_S"
 
 # common
 COMMON:

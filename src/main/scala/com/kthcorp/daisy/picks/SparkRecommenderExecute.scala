@@ -39,21 +39,41 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 		               rawUserItemData: Dataset[String]): DataFrame = {
 
 		val newRawUserItemDataDF = rawUserItemData.map { lines =>
-			lines.split(",") match {
+			lines.split("\001") match {
 				case Array(user, item, count) => PreUserInfo(user.toString, user.hashCode, item.toInt, count.toInt)
 				case Array(user, item, _*) => PreUserInfo(user.toString, user.hashCode, item.toInt, 0)
 				case Array(user, _*) => PreUserInfo(user.toString, user.hashCode, 0, 0)
 			}
 		}.toDF("oriUser", "user", "item", "count")
-		newRawUserItemDataDF.createOrReplaceTempView("temp")
-		spark.sql("select b.oriUser, b.count, b.cnt from (select a.oriUser, a.count, a.cnt from (select oriUser, count, count(1) as cnt from temp group by oriUser, count) a group by a.oriUser, a.count, a.cnt having a.cnt <= 3 ) b where b.count > 1 ").show(false)
-		spark.sql("select oriUser, item, count from temp where oriUser = '201602373784'  ").show(false)
+//		newRawUserItemDataDF.createOrReplaceTempView("temp")
+//		spark.sql("select b.oriUser, b.count, b.cnt from (select a.oriUser, a.count, a.cnt from (select oriUser, count, count(1) as cnt from temp group by oriUser, count) a group by a.oriUser, a.count, a.cnt having a.cnt <= 3 ) b where b.count > 1 ").show(false)
+//		spark.sql("select oriUser, item, count from temp where oriUser = '201602373784'  ").show(false)
 		newRawUserItemDataDF
 	}
 
+//		def preparation(
+//			               rawUserItemData: DataFrame): DataFrame = {
+//			rawUserItemData.map { lines =>
+//				PreUserInfo(lines.getAs("user"), lines.getAs("user").hashCode, lines.getAs("item"), lines.getAs("count"))
+//			}.toDF("oriUser", "user", "item", "count")
+//		}
+
+//	def preparation(
+//									rawUserItemData: DataFrame): DataFrame = {
+//
+//		rawUserItemData.createOrReplaceTempView("temp")
+//		rawUserItemData.select("select user, item, count from temp").toDF()
+//		var df = spark.sql("select word, count(*) from wordtable group by word")
+//
+//		val newRawUserItemDataDF = rawUserItemData.map { lines =>
+//
+//		}.toDF("oriUser", "user", "item", "count")
+//		newRawUserItemDataDF
+//	}
+
 	def buildHashUserMap(rawUserItemData: Dataset[String]): scala.collection.Map[Int, String] = {
 		rawUserItemData.flatMap { lines =>
-			lines.split(",") match {
+			lines.split("\001") match {
 				case Array(user, _*) => Some((user.hashCode, user.toString))
 				case Array(_*) => None
 			}
@@ -121,7 +141,7 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 		// dataset 을 dataframe 로 변환
 		val oriUserItemDataDF = rawUserItemData.map { line =>
 			// 원천 data 예외처리
-			line.split(",") match {
+			line.split("\001") match {
 				case Array(user, item, count) => OriUserInfo(user.hashCode, item.toInt, count.toInt)
 				case Array(user, item, _*) => OriUserInfo(user.hashCode, item.toInt, 0)
 				case Array(user, _*) => OriUserInfo(user.hashCode, 0, 0)
@@ -338,7 +358,7 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 		// dataset 을 dataframe 로 변환
 		val oriUserItemDataDF = rawUserItemData.map { line =>
 			// 원천 data 예외처리
-			line.split(",") match {
+			line.split("\001") match {
 				case Array(user, item, count) => OriUserInfo(user.hashCode, item.toInt, count.toInt)
 				case Array(user, item, _*) => OriUserInfo(user.hashCode, item.toInt, 0)
 				case Array(user, _*) => OriUserInfo(user.hashCode, 0, 0)

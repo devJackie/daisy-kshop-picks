@@ -48,7 +48,7 @@ object HdfsUtil {
 	def saveAsHdfsForRecomm(spark: SparkSession, df: DataFrame, profiles: String, gubn: String, p_yymmdd: String): Unit = {
 		df.coalesce(1).write
 			.mode(SaveMode.Overwrite)
-			.option("delimiter", "\036").csv(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd)
+			.option("delimiter", "\001").csv(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd)
 
 		val hadoopConf = spark.sparkContext.hadoopConfiguration
 		val fs = FileSystem.get(new URI(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_DEFAULT_URL")), new Configuration(hadoopConf))
@@ -74,7 +74,7 @@ object HdfsUtil {
 	def saveAsHdfsForSearch(df: DataFrame, profiles: String, gubn: String, p_yymmdd: String, p_hh: String): Unit = {
 		df.coalesce(1).write
 			.mode(SaveMode.Append)
-			.option("delimiter", "\036").csv(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd + "/p_hh=" + p_hh)
+			.option("delimiter", "\001").csv(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd + "/p_hh=" + p_hh)
 	}
 
 	def setHdfsCheckPointDir(spark: SparkSession, p_yymmdd: String): Unit = {
@@ -131,7 +131,7 @@ object HdfsUtil {
 //            .format("com.databricks.spark.csv")
 //            .option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/1month/p_yymmdd=" + p_yymmdd)
 //            .option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/2month/p_yymmdd=" + p_yymmdd)
-			.option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/3month/p_yymmdd=" + p_yymmdd)
+			.option("delimiter", "\001").csv("hdfs://localhost/user/devjackie/picks/result/3month/p_yymmdd=" + p_yymmdd)
 //            .option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/4month/p_yymmdd=" + p_yymmdd)
 //            .option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/5month/p_yymmdd=" + p_yymmdd)
 //            .option("delimiter", "\036").csv("hdfs://localhost/user/devjackie/picks/result/6month/p_yymmdd=" + p_yymmdd)

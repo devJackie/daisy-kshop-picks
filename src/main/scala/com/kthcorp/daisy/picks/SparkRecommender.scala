@@ -3,12 +3,13 @@ package com.kthcorp.daisy.picks
 import com.kthcorp.daisy.picks.utils.{BroadcastInstance, CommonsUtil, HdfsUtil}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.{Dataset, Encoders, Row, SparkSession}
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor
 
 import scala.beans.BeanProperty
 import scala.collection.JavaConversions
+import org.apache.spark.sql.{Encoder, Encoders}
 
 /**
 	* create by devjackie on 2018.10.17
@@ -57,17 +58,26 @@ object SparkRecommender {
 			// 하지만 우리는 계보 체인을 깰 수 없기 때문에 DAGScheduler를 재귀적으로 변경 하여 이 문제를 해결할 경우 확실하지 않다.
 			// 하지만 그것은 잠재적인 stackoverflow 드라이버에서 피할 것이다. (예외가 반복적으로 단계를 만들 때 발생했다)
 			// 전일자 조회
-			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
+//			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
+			val p_yymmdd = "20190711"
 			val p_hh = CommonsUtil.getTimeForHour()
 
 			HdfsUtil.setHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("COMM_KSHOP_DAISY_PICKS"), p_yymmdd)
 
-			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_RESULT_3MONTH_URL")).repartition(10)
-//			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_IN_S") + "/p_yymmdd=" + p_yymmdd).repartition(10)
+//			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_BASE_RESULT_3MONTH_URL")).repartition(10)
+			val rawUserItemData: Dataset[String] = spark.read.textFile(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_IN_S") + "/p_yymmdd=" + p_yymmdd).repartition(10)
+//			val rawUserItem = spark.read.format("orc").load(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + CommonsUtil.getYaml(profiles).get("HDFS").get("MART_RMD_CST_PRD_PRCH_IN_S") + "/p_yymmdd=" + p_yymmdd).repartition(10).toDF("user", "item", "count")
+//			rawUserItemData.show(10)
+//			rawUserItem.show(10)
+
+			import spark.implicits._
+//			val rawUserItemData = rawUserItem.asInstanceOf[Dataset[String]]
+//			rawUserItemData.show(10)
 
 			val sparkRecommenderExecute = new SparkRecommenderExecute(spark, profiles, p_yymmdd, p_hh)
 			// user, hashUser Map 데이터 생성
 			var bcUserItemData = BroadcastInstance.getBroadCastUserItemData(spark.sparkContext, spark, sparkRecommenderExecute.preparation(rawUserItemData))
+			bcUserItemData.value.show(10)
 			sparkRecommenderExecute.recommend(rawUserItemData, bcUserItemData.value)
 
 			// spark context hdfs checkPoint 삭제
