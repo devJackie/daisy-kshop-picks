@@ -413,10 +413,11 @@ class SparkRecommenderExecute(private val spark: SparkSession, private val profi
 				val findOriUser = bcHashUser.value.getOrElse(user, user.toString)
 				//                (findOriUser, item, prediction)
 				//https://stackoverflow.com/questions/11106886/scala-doubles-and-precision
-				(findOriUser, item, BigDecimal(prediction).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble) // 지수 표기 제외 - 소수점 2자리까지만
+//				(findOriUser, item, BigDecimal(prediction).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble) // 지수 표기 제외 - 소수점 2자리까지만
+				("", findOriUser, item, BigDecimal(prediction).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble, p_yymmdd) // 지수 표기 제외 - 소수점 2자리까지만
 				//                (findOriUser, item, "%.2f".format(prediction).toDouble)
 			})
-		}).toDF("user", "item", "prediction")
+		}).toDF("pid", "user", "item", "prediction", "yyyymmdd")
 
 		filterRecommDF.unpersist(false)
 

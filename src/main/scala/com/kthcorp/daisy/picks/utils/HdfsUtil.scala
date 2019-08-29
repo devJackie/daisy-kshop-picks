@@ -48,7 +48,8 @@ object HdfsUtil {
 	def saveAsHdfsForRecomm(spark: SparkSession, df: DataFrame, profiles: String, gubn: String, p_yymmdd: String): Unit = {
 		df.coalesce(1).write
 			.mode(SaveMode.Overwrite)
-			.option("delimiter", "\001").csv(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd)
+//			.option("delimiter", "\001").csv(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd) // csv
+			.orc(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_MART_URL") + gubn + "/p_yymmdd=" + p_yymmdd) // orc
 
 		val hadoopConf = spark.sparkContext.hadoopConfiguration
 		val fs = FileSystem.get(new URI(CommonsUtil.getYaml(profiles).get("HDFS").get("HDFS_DEFAULT_URL")), new Configuration(hadoopConf))

@@ -58,8 +58,8 @@ object SparkRecommender {
 			// 하지만 우리는 계보 체인을 깰 수 없기 때문에 DAGScheduler를 재귀적으로 변경 하여 이 문제를 해결할 경우 확실하지 않다.
 			// 하지만 그것은 잠재적인 stackoverflow 드라이버에서 피할 것이다. (예외가 반복적으로 단계를 만들 때 발생했다)
 			// 전일자 조회
-//			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
-			val p_yymmdd = "20190711"
+			val p_yymmdd = CommonsUtil.getMinus1DaysDate()
+//			val p_yymmdd = "20190711"
 			val p_hh = CommonsUtil.getTimeForHour()
 
 			HdfsUtil.setHdfsCheckPointDir(spark, profiles, CommonsUtil.getYaml(profiles).get("COMMON").get("COMM_KSHOP_DAISY_PICKS"), p_yymmdd)
